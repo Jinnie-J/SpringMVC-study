@@ -56,3 +56,35 @@
   - 이 경우 서버에서 Boolean 타입을 찍어보면 결과가 null이 아니라 false인 것을 확인할 수 있다. 
   
 ### 체크 박스 - 단일2
+- 개발할 때 마다 히든 필드를 추가하는 것은 상당히 번거롭다. 타임리프가 제공하는 폼 기능을 사용하면 이런 부분을 자동으로 처리할 수 있다.
+```javascript
+<input type="checkbox" id="open" th:field="*{open}" class="form-check-input">
+```
+- 타임리프를 사용하면 체크 박스의 히든 필드와 관련된 부분도 함께 해결해준다. HTML 생성 결과를 보면 히든 필드 부분이 자동으로 생성되어 있다.
+
+### 체크 박스 - 멀티
+- 체크 박스를 멀티로 사용해서, 하나 이상을 체크할 수 있도록 한다.
+
+#### @ModelAttribute의 특별한 사용법
+- 등록 폼, 상세화면, 수정 폼에서 모두 서울, 부산, 제주라는 체크 박스를 반복해서 보여주어야 한다. 이렇게 하려면 각각의 컨트롤러에서 model.addAttribute(...)을 사용해서 체크 박스를 구성하는 데이터를 반복해서 넣어주어야 한다.
+- @ModelAttribute는 이렇게 컨트롤러에 있는 별도의 메서드에 적용할 수 있다.
+- 이렇게하면 해당 컨트롤러를 요청할 때 regions 에서 반환한 값이 자동으로 모델(model)에 담기게 된다.
+
+- th:for="${#idx.prev('regions')}"
+  - 멀티 체크박스는 같은 이름의 여러 체크박스를 만들 수 있다. 그런데 문제는 이렇게 반복해서 HTML 태그를 생성할 때, 생성된 HTML 태그 속성에서 name은 같아도 되지만, id는 모두 달라야 한다. 따라서 타임리프는 체크박스를 each 루프 안에서 반복해서 만들 때 임의로 1,2,3 숫자를 뒤에 붙여준다.
+
+#### each로 체크박스가 반복 생성된 결과 - id 뒤에 숫자가 추가
+```javascript
+<input type="checkbox" value="SEOUL" class="form-check-input" id="regions1" name="regions">
+<input type="checkbox" value="BUSAN" class="form-check-input" id="regions2" name="regions">
+<input type="checkbox" value="JEJU" class="form-check-input" id="regions3" name="regions">
+```
+- HTML의 id가 타임리프에 의해 동적으로 만들어지기 때문에 < label for="id 값" >으로 label의 대상이 되는 id값을 임의로 지정하는 것은 곤란하다. 타임리프는 ids.prev(...), ids.next(...)을 제공해서 동적으로 생성되는 id 값을 사용할 수 있도록 한다.
+
+#### 로그 출력
+- 서울, 부산 선택
+  - regions=SEOUL&_regions=on&regions=BUSAN_regions=on&_regions=on
+  - 로그: item.regions=[SEOUL, BUSAN]
+- 지역 선택 X
+  - _regions=on&_regions=on&_regions=on
+  - 로그: item.regions=[]
