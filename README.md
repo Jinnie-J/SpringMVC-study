@@ -103,3 +103,73 @@
 ### 셀렉트 박스
 - 셀렉트 박스는 여러가지 선택지 중에 하나를 선택해 사용할 수 있다.
 - @ModelAttribute가 있는 deliveryCodes() 메서드는 컨트롤러가 호출될 때 마다 사용되므로 deliveryCodes 객체도 계속 생성된다. 이런 부분은 미리 생성해두고 재사용하는 것이 더 효율적이다.
+
+## 메시지, 국제화
+
+### 메시지, 국제화 소개
+#### 메시지
+- 여러 화면에 보이는 상품명, 가격, 수량 등 'label'에 있는 단어를 변경하려면 화면들을 다 찾아가면서 모두 변경해야 한다. 화면 수가 적으면 문제가 되지 않지만 화면이 수십개 이상이라면 수십개의 파일을 모두 고쳐야 한다.
+- 왜냐하면 해당 HTML 파일에 메시지가 하드코딩 되어 있기 때문이다. 이런 다양한 메시지를 한 곳에서 관리하도록 하는 기능을 메시지 기능이라 한다.
+  ```html
+  'message.properties'라는 메시지 관리용 파일을 만들고
+  item=상품
+  item.id= 상품 ID
+  item.itemName = 상품명
+  item.price = 가격
+  item.quantity = 수량
+  
+  각 HTML들은 해당 데이터를 key 값으로 불러서 사용한다.
+  <label for="itemName" th:text="#{item.itemName}"></label>
+  ```
+  
+#### 국제화
+- 메시지에서 설정한 메시지 파일('message.properties')을 각 나라별로 별도로 관리하면 서비스를 국제화할 수 있다.
+  ```html
+  'message_en.properties'
+  item = Item
+  item.id = Item ID
+  item.price = price
+  item.quantity = quantity
+  
+  'message_ko.properties'
+  item = 상품
+  item.id = 상품 ID
+  item.itemName = 상품명
+  item.price = 가격
+  item.quantity = 수량
+  ```
+- 영어를 사용하는 사람이면 'message_en.properties'를 사용하고, 한국어를 사용하는 사람이면 'message_ko.properties'를 사용하게 개발하면 된다.
+- 한국에서 접근한 것인지 영어에서 접근한 것인지 인식하는 방법은 HTTP 'accept-language' 헤더 값을 사용하거나 사용자가 직접 언어를 선택하도록 하고, 쿠키 등을 사용해서 처리하면 된다.
+- 스프링은 기본적인 메시지와 국제화 기능을 모두 제공한다. 그리고 타임리프도 스프링이 제공하는 메시지와 국제화 기능을 편리하게 통합해서 제공한다.
+
+### 스프링 메시지 소스 설정
+- 메시지 관리 기능을 활용하려면 스프링이 제공하는 'MessageSource'를 스프링 빈으로 등록하면 되는데, 'MessageSource'는 인터페이스이다. 따라서 구현체인 'ResourceBundleMessageSource' 를 스프링 빈으로 등록하면 된다.
+- 'MessageSource'를 스프링 빈으로 등록하지 않고, 스프링 부트와 관련된 별도의 설정을 하지 않으면 'message'라는 이름으로 기본 등록된다. 따라서 'messages_en.properties','messages_ko.properties','messages.properties' 파일만 등록하면 자동으로 인식된다.
+  ```html
+  message.properties
+  hello=안녕
+  hello.name=안녕 {0}
+  
+  message_en.properties
+  hello=hello
+  hello.name=hello {0}
+  ```
+### 스프링 메시지 소스 사용
+- 가장 단순한 테스트는 메시지 코드로 hello를 입력하고 나머지 값은 null을 입력했다. locale 정보가 없으면 basename에서 설정한 기본 이름 메시지 파일을 조회한다. basename으로 messages를 지정했으므로 messages.properties 파일에서 데이터 조회한다.
+  ```html
+   ms.getMessage("hello",null,null)
+   - code: hello
+   - args: null
+   - locale: null
+  ```
+- 메시지가 없는 경우, 기본 메시지
+  - 메시지가 없는 경우에는 NoSuchMessageException이 발생한다.
+  - 메시지가 없어도 기본 메시지(defaultMessage)를 사용하면 기본 메시지가 반환된다.
+- 매개변수 사용
+  - 다음 메시지의 {0} 부분은 매개변수를 전달해서 치환할 수 있다.
+  - hello.name 안녕 {0} -> Spring 단어를 매개변수로 전달 -> 안녕 Spring
+- 국제화 파일 선택
+  - locale 정보를 기반으로 국제화 파일을 선택한다.
+  - Locale이 en_US의 경우 messages_en_US -> messages_en -> messages 순서로 찾는다.
+  - Locale에 맞추어 구체적인 것이 있으면 구체적인 것을 찾고, 없으면 디폴트를 찾는다고 이해하면 된다.
+  
