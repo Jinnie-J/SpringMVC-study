@@ -284,3 +284,97 @@
 - 타입 오류 처리가 안된다. item의 price, quantity 같은 숫자 필드는 타입이 Integer 이므로 문자 타입으로 설정하는 것이 불가능하다. 숫자 타입에 문자가 들어오면 오류가 발생한다. 그런데 이러한 오류는 스프링MVC에서 컨트롤러에 진입하기도 전에 예외가 발생하기 때문에, 컨트롤러가 호출되지도 않고, 400 예외가 발생하면서 오류 페이지를 띄워준다.
 - Item의 price에 문자를 입력하는 것 처럼 타입 오류가 발생해도 고객이 입력한 문자를 화면에 남겨야 한다. 만약 컨트롤러가 호출된다고 가정해도 Item의 price는 Integer이므로 문자를 보관할 수가 없다. 결국 문자는 바인딩이 불가능하므로 고객이 입력한 문자가 사라지게 되고, 고객은 본인이 어떤 내용을 입력해서 오류가 발생했는지 이해하기 어렵다.
 - 결국 고객이 입력한 값도 어딘가에 별도로 관리가 되어야 한다.
+
+### BindingResult1
+- 스프링이 제공하는 검증 오류 처리 방법
+
+#### 필드오류 - FieldError
+```java
+if (!StringUtils.hasText(item.getItemName())){
+    bindingResult.addError(new FieldError("item","itemName","상품 이름은 필수입니다."));
+        }
+```
+#### 필드 생성자 요약
+```java
+public FieldError(String objectName, String field, String defaultMessage){}
+```
+
+- 필드에 오류가 있으면 FieldError 객체를 생성해서 bindingResult에 담아두면 된다.
+  - objectName: @ModelAttribute이름
+  - field: 오류가 발생한 필드 이름
+  - defaultMessage: 오류 기본 메시지
+
+#### 글로벌 오류 - ObjectError
+```java
+bindingResult.addError(new ObjectError("item","가격 * 수량의 합은 10,000원 이상이어야 합니다. 현재 값="+ resultPrice));
+```
+
+#### ObjectError 생성자 요약
+```java
+public ObjectError(String objectName, String defaultMessage){}
+```
+- 특정 필드를 넘어서는 오류가 있으면 ObjectError 객체를 생성해서 bindingResult에 담아두면 된다.
+- objectName: @ModelAttribute의 이름
+- defaultMessage: 오류 기본 메시지
+
+#### 타임리프 스프링 검증 오류 통합 기능
+- 타임리프는 스프링의 BindingResult를 활용해서 편리하게 검증 오류를 표현하는 기능을 제공한다.
+  - '#fields': #fields로 BindingResult가 제공하는 검증 오류에 접근할 수 있다.
+  - th:errors: 해당 필드에 오류가 있는 경우에 태그를 출력한다. th:if의 편의 버전이다.
+  - th:errorclass: th:field에서 지정한 필드에 오류가 있으면 class 정보를 추가한다.
+  
+### BindingResult2
+- 스프링이 제공하는 검증 오류를 보관하는 객체이다. 검증 오류가 발생하면 여기에 보관하면 된다.
+- BindingResult가 있으면 @ModelAttribute에 데이터 바인딩 시 오류가 발생해도 컨트롤러가 호출된다.
+- @ModelAttribute에 바인딩 시 타입 오류가 발생하면?
+  - BindingResult가 없으면 -> 400오류가 발생하면서 컨트롤러가 호출되지 않고, 오류 페이지로 이동한다.
+  - BindingResult가 있으면 -> 오류 정보(fieldError)를 BindingResult에 담아서 컨트롤러를 정상 호출한다.
+  
+
+#### "BindingResult에 검증 오류를 적용하는 3가지 방법"
+- @ModelAttribute의 객체에 타입 오류 등으로 바인딩이 실패하는 경우 스프링이 FieldError 생성해서 BindingResult에 넣어준다.
+- 개발자가 직접 넣어준다.
+- Validator 사용
+
+#### 타입 오류 확인
+- 숫자가 입력되어야 할 곳에 문자를 입력해서 타입을 다르게 해서 BindingResult를 호출하고 BindingResult의 값을 확인해보자
+
+- 주의
+  - BindingResult는 검증할 대상 바로 다음에 와야한다. 순서가 중요하다. '@ModelAttribute Item item' 바로 다음에 'BindingResult'는 Model에 자동으로 포함된다.
+  
+#### BindingResult와 Errors
+- 'org.springframework.validation.Errors'
+- 'org.springframework.validation.BindingResult'
+- BindingResult는 인터페이스고, Errors 인터페이스를 상속받고 있다.
+- 실제 넘어오는 구현체는 'BeanPropertyBindingResult'라는 것인데, 둘다 구현하고 있으므로 BindingResult 대신에 Errors를 사용해도 된다.
+- Errors 인터페이스는 단순한 오류 저장과 조회 기능을 제공한다. BindingResult는 여기에 더해서 추가적인 기능을 제공한다. 
+- addError()도 BindingResult가 제공한다. 주로 관례상 BindingResult를 많이 사용한다.
+
+### FieldError, ObjectError
+- 사용자 입력 오류 메시지가 화면에 남도록 하자
+- FieldError 생성자
+  ```java
+  public FieldError(String objectName, String field, String defaultMessage);
+  public FieldError(String objectName, String field, @Nullable Object rejectedValue, boolean bindingFailure, @Nullable String[] codes, @Nullable Object[] arguments, @Nullable String defaultMessage)
+  ```
+- 파라미터 목록
+  - objectName: 오류가 발생한 객체 이름
+  - field: 오류 필드
+  - rejecedValue: 사용자가 이벽한 값(거절된 값)
+  - bindingFailure: 타입 오류 같은 바인딩 실패인지, 검증 실패인지 구분 값
+  - codes: 메시지 코드
+  - arguments: 메시지에서 사용하는 인자
+  - defaultMessage: 기본 오류 메시지
+- 오류 발생시 사용자 입력 값 유지
+  ```java
+  new FieldError("item", "price", item.getPrice(), false, null, null, "메시지");
+  ```
+- 사용자의 입력 데이터가 컨트롤러의 @ModelAttribute에 바인딩되는 시점에 오류가 발생하면 모델 객체에 사용자 입력 값을 유지하기 어렵다. 오류가 발생한 경우 사용자 입력 값을 보관하는 별도의 방법이 필요하다. 이렇게 보관한 사용자 입력 값을 검증 오류 발생시 화면에 다시 출력하면 된다.
+- FieldError는 오류 발생시 사용자 입력 값을 저장하는 기능을 제공한다. rejectValue가 오류 발생시 사용자 입력 값을 저장하는 필드다.
+
+#### 타임 리프의 사용자 입력 값 유지
+- th:field="*{price}"
+- 정상 상황에는 모델 객체의 값을 사용하지만, 오류가 발생하면 FieldError에서 보관한 값을 사용해서 값을 출력한다.
+
+#### 스프링의 바인딩 오류 처리
+- 타입 오류로 바인딩에 실패하면 스프링은 FieldError를 생성하면서 사용자가 입력한 값을 넣어둔다. 그리고 해당 오류를 BindingResult에 담아서 컨트롤러를 호출한다. 따라서 타입 오류 같은 바인딩 실패시에도 사용자의 오류 메시지를 정상 출력할 수 있다. 
