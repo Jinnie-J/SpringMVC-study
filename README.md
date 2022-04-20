@@ -378,3 +378,30 @@ public ObjectError(String objectName, String defaultMessage){}
 
 #### 스프링의 바인딩 오류 처리
 - 타입 오류로 바인딩에 실패하면 스프링은 FieldError를 생성하면서 사용자가 입력한 값을 넣어둔다. 그리고 해당 오류를 BindingResult에 담아서 컨트롤러를 호출한다. 따라서 타입 오류 같은 바인딩 실패시에도 사용자의 오류 메시지를 정상 출력할 수 있다. 
+
+### 오류 코드와 메시지 처리1
+
+#### FieldError 생성자
+- FieldError는 두 가지 생성자를 제공한다
+  ```java
+  public FieldError(String objectName, String field, String defaultMessage);
+  public FieldError(String objectName, String field, @Nullable Object rejectedValue, boolean bindingFailure, 
+         @Nullable String[] codes, @Nullable Object[] arguments, @Nullable String defaultMessage);
+  ```
+- 파라미터 목록
+  - objectName: 오류가 발생한 객체 이름
+  - field: 오류 필드
+  - rejectedValue: 사용자가 입력한 값(거절된 값)
+  - bindingFailure: 타입 오류 같은 바인딩 실패인지, 검증 실패인지 구분 값
+  - codes: 메시지 코드
+  - arguments: 메시지에서 사용하는 인자
+  - defaultMessage: 기본 오류 메시지
+- FieldError, ObjectError의 생성자는 errorCode, arguments를 제공한다. 이것은 오류 발생시 오류 코드로 메시지를 찾기 위해 사용된다.
+
+  ```java
+  //range.item.price= 가격은 {0} ~ {1} 까지 허용합니다.
+  new FiledError("item", "price", item.getPrice(), false, 
+                 new String[]{"range.item.price"}, new Object[]{1000, 1000000}) 
+  ```
+- codes: required.item.itemName를 사용해서 메시지 코드를 지정한다. 메시지 코드는 하나가 아니라 배열로 여러 값을 전달할 수 있는데, 순서대로 매칭해서 처음 매칭되는 메시지가 사용된다.
+- arguments: Object[]{1000, 1000000}를 사용해서 코드의 {0}, {1}로 치환할 값을 전달한다.
