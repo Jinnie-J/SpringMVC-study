@@ -405,3 +405,38 @@ public ObjectError(String objectName, String defaultMessage){}
   ```
 - codes: required.item.itemName를 사용해서 메시지 코드를 지정한다. 메시지 코드는 하나가 아니라 배열로 여러 값을 전달할 수 있는데, 순서대로 매칭해서 처음 매칭되는 메시지가 사용된다.
 - arguments: Object[]{1000, 1000000}를 사용해서 코드의 {0}, {1}로 치환할 값을 전달한다.
+
+### 오류 코드와 메시지 처리2
+- BindingResult가 제공하는 rejectValue(), reject()를 사용하면 FieldError, ObjectError를 직접 생성하지 않고, 깔끔하게 검증 오류를 다룰 수 있다.
+
+#### rejectValue()
+  ```java 
+  void rejectValue(@Nullable String field, String errorCode,
+          @Nullable Object[] errorArgs, @Nullable String defaultMessage);
+  ```
+- field: 오류 필드명
+- errorCode: 오류 코드(이 오류 코드는 메시지에 등록된 코드가 아니다. 뒤에서 설명할 messageResolver를 위한 오류 코드이다.)
+- errorArgs: 오류 메시지에서 {0}을 치환하기 위한 값
+- defaultMessage: 오류 메시지를 찾을 수 없을 때 사용하는 기본 메시지
+```java
+bindingResult.rejectValue("price","range",new Object[]{1000, 1000000}, null)
+```
+- 앞에서 bindingResult는 어떤 객체를 대상으로 검증하는지 target을 이미 알고 있다고 했다. 따라서 target(item)에 대한 정보는 없어도 된다. 오류 필드명은 동일하게 price를 사용했다.
+
+### 오류 코드와 메시지 처리3
+- 오류코드를 단순하게 만들면 범용성이 좋아서 여러곳에서 사용할 수 있지만, 메시지를 세밀하게 작성하기 어렵다 .반대로 너무 자세하게 만들면 범용성이 떨어진다.
+- 가장 좋은 방법은 범용성으로 사용하다가, 세밀하게 작성해야 하는 경우에는 세밀한 내용이 적용되도록 메시지에 단계를 두는 방법이다.
+
+- 다음과 같이 required라는 메시지만 있으면 이 메시지를 선택해서 사용한다.
+  ```properties
+   required: 필수 값 입니다.
+   ```
+- 그런데 오류 메시지에 'required.item.itemName'와 같이 객체명과 필드를 조합한 세밀한 메시지 코드가 있으면 이 메시지를 높은 우선순위로 사용하는 것이다.
+  ```properties
+  #Level1
+  required.item.itemName: 상품 이름은 필수 입니다.
+
+  #Level2
+  required: 필수 값 입니다.
+  ```
+- 스프링은 'MessageCodesResolver'라는 것으로 이러한 기능을 지원한다.  
