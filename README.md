@@ -439,4 +439,72 @@ bindingResult.rejectValue("price","range",new Object[]{1000, 1000000}, null)
   #Level2
   required: 필수 값 입니다.
   ```
-- 스프링은 'MessageCodesResolver'라는 것으로 이러한 기능을 지원한다.  
+- 스프링은 'MessageCodesResolver'라는 것으로 이러한 기능을 지원한다. 
+
+### 오류 코드와 메시지 처리4
+#### MessageCodesResolver
+- 검증 오류 코드로 메시지 코드들을 생성한다.- MessageCodesResolver 인터페이스이고 DefaultMessageCodesResolver는 기본 구현체이다.- 주로 다음과 함꼐 사용 ObjectError, FieldError
+
+#### DefaultMessageCodeResolver의 기본 메시지 생성 규칙
+- 객체 오류
+  1. code + "."+ object name
+  2. code
+- 필드 오류
+  1. code + "." + object name + "." + field
+  2. code + "." + field
+  3. code + "." + field type
+  4. code
+  
+#### FieldError - rejectValue("itemName","required")
+- 다음 4가지 오류 코드를 자동으로 생성
+- required.item.itemName
+- required.itemName
+- required.java.lang.String
+- required
+
+#### ObjectError - reject("totalPriceMin")
+- 다음 2가지 오류 코드를 자동으로 생성
+- totalPriceMin.item
+- totalPriceMin
+
+#### 오류 메시지 출력
+- 타임리프 화면을 렌더링할 때 th:errors가 실행된다. 만약 이때 오류가 있다면 생성된 오류 메시지 코드를 순서대로 돌아가면서 메시지를 찾는다. 그리고 없으면 디폴트 메시지를 출력한다.
+
+### 오류 코드와 메시지 처리5
+
+#### 오류 코드 관리 전략
+- 핵심은 구체적인 것에서 덜 구체적인 것으로
+   - MessageCodeResolver는 required.item.itemName 처럼 구체적인 것을 먼저 만들어주고, required 처럼 덜 구체적인 것을 가장 나중에 만든다.
+- 크게 중요하지 않은 메시지는 범용성 있는 require 같은 메시지로 끝내고, 정말 중요한 메시지는 꼭 필요할 때 구체적으로 적어서 사용하는 방식이 더 효과적이다.  
+
+#### ValidationUtils
+- ValidationUtils 사용 전
+  ```java
+  if (!StringUtils.hasText(item.getItemName())){
+      bindingResult.rejectValue("itemName","required","상품 이름은 필수입니다.");
+          }
+  ```
+  
+- ValidationUtisl 사용 후
+  
+  - 다음과 같이 한줄로 가능, 제공하는 기능은 Empty, 공백 같은 단순한 기능만 제공
+  ```java
+  ValidationUtils.rejectEmptyOrWhitespace(bindingResult, "itemName","required");
+  ```
+  
+#### 정리
+- 1. rejectValue() 호출
+- 2. MessageCodesResolver를 사용해서 검증 오류 코드로 메시지 코드들을 생성
+- 3. new FieldError()를 생성하면서 메시지 코드들을 보관
+- 4. th:errors에서 메시지 코드들로 메시지를 순서대로 메시지에서 찾고, 노출
+  
+### 오류 코드와 메시지 처리6
+- 검증 오류 코드는 2가지로 나눌 수 있다.
+  - 개발자가 직접 설정한 오류 코드 -> rejectValue()를 직접 호출
+  - 스프링이 직접 검증 오류에 추가한 경우(주로 타입 정보가 맞지 않음)
+- 스프링은 타입 오류가 발생하면 typeMismatch라는 오류 코드를 사용한다. 이 오류 코드가 MessageCodesResolver를 통하면서 4가지 메시지 코드가 생성된다.
+  - typeMismatch.item.price
+  - typeMismatch.price
+  - typeMismatch.java.lang.Integer
+  - typeMismatch
+- 결과적으로 소스코드를 하나도 건들지 않고, 원하는 메시지를 단계별로 설정할 수 있다.  
