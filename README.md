@@ -218,7 +218,7 @@
 - LocaleResolver 변경
   - 만약 Locale 선택 방식을 변경하려면 LocaleResolver의 구현체를 변경해서 쿠키나 세션 기반의 Locale 선택 기능을 사용할 수 있다. 예를 들어서 고객이 직접 Locale을 선택하도록 하는 것이다.
   
-## 검증 - Validation
+## 검증1 - Validation
 
 ### 검증 요구사항
 
@@ -542,3 +542,43 @@ bindingResult.rejectValue("price","range",new Object[]{1000, 1000000}, null)
 #### 참고
 - 검증 시 @Validated, @Valid 둘다 사용가능하다.
 - @Validated는 스프링 전용 검증 애노테이션이고, @Validate는 자바 표준 검증 애노테이션이다.
+
+## 검증2 - Bean Validation
+
+### Bean Validation 소개
+  ```java
+  public class Item{
+    private Long id;
+    
+    @NotBalnk
+    private String itemName;
+    
+    @NotNull
+    @Range(min = 1000, max = 1000000)
+    private Integer price;
+}
+  ```
+- 이런 검증 로직을 모든 프로젝트에 적용할 수 있게 공동화하고, 표준화 한 것이 Bean Validation이다. Bean Validation을 잘 활용하면, 애노테이션 하나로 검증 로직을 매우 편리하게 적용할 수 있다.
+- 특정한 구현체가 아니라 Bean Validation 2.0이라는 기술 표준이다. 쉽게 이야기해서 검증 애노테이션과 여러 인터페이스의 모음이다. 
+- Bean Validation을 구현한 기술중에 일반적으로 사용하는 구현체는 하이버네이터 Validator이다. 
+
+### Bean Validation 시작
+
+#### 검증 애노테이션
+- @NotBlank: 빈값 + 공백만 있는 경우를 허용하지 않는다.
+- @NotNull: null을 허용하지 않는다.
+- @Range(min=1000, max=1000000): 범위 안의 값이어야 한다.
+- @Max(9999): 최대 9999까지만 허용한다.
+
+#### 검증기 생성
+- 이후 스프링과 통합하면 직접 이런 코드를 작성하지는 않는다.
+  ```java
+  ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
+  Validator validator = factory.getValidator();
+  ```
+#### 검증 실행
+- 검증 대상을 직접 검증기에 넣고 그 결과를 받는다. Set에는 ConstraintViolation이라는 검증 오류가 담긴다. 따라서 결과가 비어있으면 검증 오류가 없는 것이다.
+  ```java
+  Set<ConstraintViolation<Item>> violations = validator.validate(item);
+  ```
+- ConstraintViolation 출력 결과를 보면, 검증 오류가 발생한 객체, 필드, 메시지 정보등 다양한 정보를 확인할 수 잇다.
