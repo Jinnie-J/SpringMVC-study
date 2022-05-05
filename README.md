@@ -581,4 +581,28 @@ bindingResult.rejectValue("price","range",new Object[]{1000, 1000000}, null)
   ```java
   Set<ConstraintViolation<Item>> violations = validator.validate(item);
   ```
-- ConstraintViolation 출력 결과를 보면, 검증 오류가 발생한 객체, 필드, 메시지 정보등 다양한 정보를 확인할 수 잇다.
+- ConstraintViolation 출력 결과를 보면, 검증 오류가 발생한 객체, 필드, 메시지 정보등 다양한 정보를 확인할 수 있다.
+
+### Bean Validation - 스프링 적용
+- 스프링 부트가 'spring-boot-starter-validation' 라이브러리를 넣으면 자동으로 Bean Validator를 인지하고 스프링에 통합한다.
+- 'LocalValidatorFactoryBean'을 글로벌 Validator로 등록한다. 이 Validator는 '@NotNull'같은 애노테이션을 보고 검증을 수행한다. 이렇게 글로벌 Validator가 적용되어 있기 때문에, '@Valid', '@Validated'만 적용하면 된다.
+- 검증 오류가 발생하면, 'FieldError', 'ObjectError'를 생성해서 'BindingResult'에 담아준다.
+
+#### 검증 순서
+- 1. @ModelAttribute 각각의 필드에 타입 변환 시도
+  - 1. 성공하면 다음으로
+  - 2. 실패하면 typeMismatch로 FieldError 추가
+- 2. Validator 적용
+  
+- 바인딩에 성공한 필드만 Bean Validation 적용
+  - BeanValidator는 바인딩에 실패한 필드는 BeanValidation을 적용하지 않는다. (일단 모델 객체에 바인딩 받는 값이 정상으로 들어와야 검증도 의미가 있다.)
+  
+### Bean Validation - 에러 코드
+- BeanValidation 메시지 찾는 순서
+  - 1. 생성된 메시지 코드 순서대로 'messageSource' 에서 메시지 찾기
+  - 2. 애노테이션의 'message'속성 사용 -> '@NotBlank(message="공백!{0}")'
+  - 3. 라이브러리가 제공하는 기본 값 사용 -> 공백일 수 없습니다.
+  
+### Bean Validation - 오브젝트 오류
+- Bean Validation에서 특정 필드(Field Error)가 아닌 해당 오브젝트 관련 오류(Object Error)는 '@ScriptAssert()'를 사용하면 된다.
+- 그런데 실제 사용해보면 제약이 많고 복잡하다. 따라서 오브젝트 오류(글로벌 오류)의 경우 '@ScriptASsert'를 억지로 사용하는 것 보다는 오브젝트 오류 관련 부분만 직접 자바 코드로 작성하는 것을 권장한다.
