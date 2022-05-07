@@ -620,3 +620,40 @@ bindingResult.rejectValue("price","range",new Object[]{1000, 1000000}, null)
 - groups 기능을 사용해서 등록과 수정시에 각각 다르게 검증할 수 있다. 그런데 groups 기능을 사용하니 전반적으로 복잡도가 올라갔다.
 - 실무에서는 주로 등록용 폼 객체와 수정용 폼 객체를 분리해서 사용한다.
 
+### Form 전송 객체 분리 
+
+#### 폼 데이터 전달에 Item 도매인 객체 사용
+- HTML Form -> Item -> Controller -> Item -> Respository
+  - 장점: Item 도메인 객체를 컨트롤러, 리포지토리까지 직접 전달해서 중간에 Item을 만드는 과정이 없어서 간단하다.
+  - 단점: 간단한 경우에만 적용할 수 있다. 수정시 검증이 중복될 수 있고, groups를 사용해야 한다.
+  
+#### 폼 데이터 전달을 위한 별도의 객체 사용
+- HTML Form -> ItemSaveForm -> Controller -> Item 생성 -> Repository
+  - 장점: 전송하는 폼 데이터가 복잡해도 거기에 맞춘 별도의 폼 객체를 사용해서 데이터를 전달 받을 수 있다. 보통 등록과, 수정용으로 별도의 폼 객체를 만들기 때문에 검증이 중복되지 않는다.
+  - 단점: 폼 데이터를 기반으로 컨트롤러에서 Item 객체를 생성하는 변환 과정이 추가된다.
+  
+- 수정의 경우 등록과 수정은 완전히 다른 데이터가 넘어온다. 검증 로직도 많이 달라진다. 그래서 'UpdateForm'이라는 별도의 객체로 전달받는 것이 좋다.
+- 따라서 이렇게 폼 데이터 전달을 위한 별도의 객체를 사용하고, 등록, 수정용 폼 객체를 나누면 등록, 수정이 완전히 분리되기 때문에 groups를 적용할 일은 드물다.
+
+### Bean Validation - HTTP 메시지 컨버터
+- @Valid, @Validation는 HttpMessageConverter(@RequestBody)에도 적용할 수 있다.
+- 참고
+  - @ModelAttribute는 HTTP요청 파라미터(URL 쿼리 스트링, POST Form)를 다룰 때 사용한다.
+  - @ReuqestBody는 HTTP Body의 데이터를 객체로 변환할 때 사용한다. 주로 API JSON 요청을 다룰 때 사용한다.
+  
+#### API의 경우 3가지 경우를 나누어 생각해야 한다.
+- 성공 요청: 성공
+- 실패 요청: JOSN을 객체로 생성하는 것 자체가 실패함
+- 검증 오류 요청: JSON을 객체로 생성하는 것은 성공했고, 검증에서 실패함
+
+  
+#### @ModelAttribute vs @RequestBody
+- HTTP 요청 파리미터를 처리하는 @ModelAttribute 는 각각의 필드 단위로 세밀하게 적용된다. 그래서
+  특정 필드에 타입이 맞지 않는 오류가 발생해도 나머지 필드는 정상 처리할 수 있었다. 
+- HttpMessageConverter 는 @ModelAttribute 와 다르게 각각의 필드 단위로 적용되는 것이 아니라,
+  전체 객체 단위로 적용된다.
+  따라서 메시지 컨버터의 작동이 성공해서 Item 객체를 만들어야 @Valid , @Validated 가 적용된다.
+  - @ModelAttribute 는 필드 단위로 정교하게 바인딩이 적용된다. 특정 필드가 바인딩 되지 않아도 나머지
+    필드는 정상 바인딩 되고, Validator를 사용한 검증도 적용할 수 있다.
+  - @RequestBody 는 HttpMessageConverter 단계에서 JSON 데이터를 객체로 변경하지 못하면 이후
+    단계 자체가 진행되지 않고 예외가 발생한다. 컨트롤러도 호출되지 않고, Validator도 적용할 수 없다.  
