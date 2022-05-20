@@ -867,3 +867,28 @@ bindingResult.rejectValue("price","range",new Object[]{1000, 1000000}, null)
 - setOrder(1): 필터는 체인으로 동작한다. 따라서 순서가 필요하다. 낮을 수록 먼저 동작한다.
 - addUrlPatterns("/*"): 필터를 적용할 URL 패턴을 지정한다. 한번에 여러 패턴을 지정할 수 있다.
 
+### 서블릿 필터 - 인증 체크
+- 로그인 되지 않은 사용자는 상품 관리 뿐만 아니라 미래에 개발될 페이지에도 접근하지 못하도록 해야한다.
+
+- whitelist= {"/", "/members/add", "/login", "/logout", "/css/*"};
+  - 인증 필터를 적용해도 홈, 회원가입, 로그인 화면, css 같은 리소스에는 접근할 수 있어야 한다. 이렇게 화이트 리스트 경로는 인증과 무관하게 항상 허용한다. 화이트 리스트를 제외한 나머지 모든 경로에는 인증 체크 로직을 적용한다.
+- isLoginCheckPath(RequestURI)
+  - 화이트 리스트를 제외한 모든 경우에 인증 체크 로직을 적용한다.
+- httpResponse.sendRedirect("/login?redirectURL="+ requestURI);
+  - 로그인 이후에 원하는 페이지로 이동하기 위해, 요청한 경로인 requestURI를 /login에 쿼리 파라미터로 함께 전달한다. 
+  
+#### webCongif - loginCheckFiliter()
+```java
+@Bean
+public FilterRegistrationBean loginCheckFilter() {
+        FilterRegistrationBean<Filter> filterRegistrationBean = new
+        FilterRegistrationBean<>();
+        filterRegistrationBean.setFilter(new LoginCheckFilter());
+        filterRegistrationBean.setOrder(2);
+        filterRegistrationBean.addUrlPatterns("/*");
+        return filterRegistrationBean;
+        }  
+```
+- setFilter(new LoginCheckFilter()): 로그인 필터를 등록한다.
+- setOrder(2): 순서를 2번으로 설정 한다.
+- addUrlPatterns("/*): 모든 요청에 로그인 필터를 적용한다.
