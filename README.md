@@ -1050,3 +1050,43 @@ WAS '/error-page/500' 다시 요청 -> 필터 -> 서블릿 -> 인터셉터 -> �
 
 - request.attribute에 서버가 담아준 정보
   - 예외, 예외 타입, 오류 메시지, 클라이언트 URI, 오류가 발생한 서블릿 이름, HTTP 상태 코드
+  
+### 서블릿 예외 처리 - 필터
+- 오류가 발생하면 오류 페이지를 출력하기 위해 WAS 내부에서 다시 한번 호출이 발생한다. 이때 필터, 서블릿, 인터셉터도 모두 다시 호출된다. 
+그런데 로그인 인증 체크 같은 경우를 생각해보면, 이미 한번 필터나, 인터셉터에서 로그인 체크를 완료했다. 따라서 서버 내부에서 오류 페이지를 호출한다고 해서 해당 필터나 인터셉트가 한번 더 호출되는 것은 매우 비효율적이다.
+- 결국 클라이언트로 부터 발생한 오류인지, 아니면 오류 페이지를 출력하기 위한 내부 요청인지 구분할 수 있어야 한다. 서블릿은 이런 문제를 해결하기 위해 DispatcherType 이라는 추가 정보를 제공한다.
+
+#### DispatcherType
+- 서블릿 스펙은 실제 고객이 요청한 것인지, 서버가 내부에서 오류 페이지를 요청하는 것인지 DispatcherType으로 구분할 수 있는 방법을 제공한다.
+  ```java
+  public enum DispatcherType{
+    FOUND,
+    INCLUDE,
+    REQUEST,
+    ASYNC,
+    ERROR   
+  }
+  ```
+- DispatcherType
+  - REQUEST: 클라이언트 요청
+  - ERROR: 오류 요청
+  - FORWARD: MVC에서 배웠던 서블릿에서 다른 서블릿이나 JSP를 호출할 때 RequestDispatcher, forward(request, response);
+  - INCLUDE: 서블릿에서 다른 서블릿이나 JSP의 결과를 포함할 때 RequestDispatcher.include(request, response);
+  - ASYNC: 서블릿 비동기 호출
+  
+### 서블릿 예외 처리 - 인터셉터
+#### 전체 흐름 정리
+- /hello 정상 요청
+  ```
+  WAS(/hello, dispatcherType=REQUEST) -> 필터 -> 서블릿 -> 인터셉터 -> 컨트롤러 -> View  
+  ```
+- /error-ex 오류 요청
+  - 필터는 DispatcherType으로 중복 호출 제거 (dispatcherType=REQUEST)
+  - 인터셉터는 경로 정보로 중복 호출 제거(excludedPathPatterns("/error-page/**"));
+  ```
+  1. WAS(/error-ex, dispatcherType=REQUEST) -> 필터 -> 서블릿 -> 인터셉터 -> 컨트롤러
+  2. WAS(여기까지 전파) <- 필터 <- 서블릿 <- 인터셉터 <- 컨트롤러(예외발생)
+  3. WAS 오류 페이지 확인
+  4. WAS(/error-page/500, dispatcherType=ERROR) -> 필터(x) -> 서블릿 -> 인터셉터(x) -> 컨트롤러(/error-page/500) -> View 
+  ```
+  
