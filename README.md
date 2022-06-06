@@ -1143,3 +1143,52 @@ WAS '/error-page/500' 다시 요청 -> 필터 -> 서블릿 -> 인터셉터 -> �
 - produces = MediaType.APPLICATION_JSON_VALUE의 뜻은 클라이언트가 요청하는 HTTP Header의 Accept의 값이 application/json일 때 해당 메서드가 호출된다는 것이다. 결국 클라이언트가 받고 싶은 미디어타입이 json이면 이 컨트롤러의 메서드가 호출된다.
 - 응답 데이터를 위해서 Map을 만들고, status, message 키에 값을 할당했다 Jackson 라이브러리는 Map을 JSON구조로 변환할 수 있다.
 - ResponseEntity를 사용해서 응답하기 때문에 메시지 컨버터가 동작하면서 클라이언트에 JSON이 반환된다.
+
+### API 예외 처리 - 스프링 부트 기본 오류 처리
+- API 예외 처리도 스프링 부트가 제공하는 기본 오류 방식을 사용할 수 있다.
+
+#### BasicErrorController 코드
+```java
+@RequestMapping(produces = MediaType.TEXT_HTML_VALUE)
+public ModelAndView errorHtml(HttpServletRequest request, HttpServletResponse response){}
+
+@RequestMapping
+public ResponseEntity<Map<String, Object>> error(HttpServletRequest request){}
+```
+- '/error' 동일한 경로를 처리하는 errorHtml(), error()두 메서드를 확인할 수 있다.
+- errorHtml(): produces = MediaType.TEXT_HTML_VALUE : 클라이언트 요청의 Accept 헤더 값이 text/html인 경우에는 errorHtml()을 호출해서 view를 제공한다.
+- error(): 그 외 경우에 호출되고, ResponseEntity로 HTTP Body에 JSON 데이터를 반환한다.
+
+#### 스프링 부트의 예외 처리
+- 스프링 부트의 기본 설정은 오류 발생시 /error를 오류 페이지로 요청한다. BasicErrorController는 이 경로를 기본으로 받는다.('server.error.path'로 수정 가능. 기본 경로 '/error')
+
+#### Html 페이지 vs API 오류
+- BasicErrorController를 확장하면 JSON 메시지도 변경할 수 있다. API 오류는 @ExceptionHandler가 제공하는 기능을 사용하는 것이 더 나은 방법이다.
+- 스프링 부트가 제공하는 BasicErrorController는 HTML 페이지를 제공하는 경우에는 매우 편리하다. 4xx, 5xx등등 모두 잘 처리해준다. 그런데 API 오류 처리는 다른 차원의 이야기이다. API 마다, 각각의 컨트롤러나 예외마다 서로 다른 응답 결과를 출력해야 할 수도 있다.
+- BasicErrorController는 HTML화면을 처리할 때 사용하고, API 오류 처리는 @ExceptionHandler 를 사용하자.
+
+### API 예외 처리 - HandlerExceptionResolver 시작
+#### HandlerExceptionResolver
+- 스프링 MVC는 컨트롤러(핸들러) 밖으로 예외가 던저진 경우 예외를 해결하고, 동작을 새로 정의할 수 있는 방법을 제공한다. 컨트롤러 밖으로 던저진 예외를 해결하고, 동작 방식을 변경하고 싶으면 HandlerExceptionResolver를 사용하면 된다. 줄여서 ExceptionResolver 라고 한다.
+- ExceptionResolver가 ModelandView를 반환하는 이유는 마치 try, catch를 하듯이, Exception을 처리해서 정상 흐름처럼 변경하는 것이 목적이다. 이름 그대로 Exception를 Resolver(해결)하는 것이 목적이다.
+- 여기서는 IllegalArgumentException이 발생하면 response.sendError(400)를 호출해서 HTTP 상태 코드를 400으로 지정하고, 빈 ModelAndView를 반환한다.
+
+#### 반환 값에 따른 동작 방식
+- 빈 ModelAndView: new ModelAndView()처럼 빈 ModelAndView를 반환하면 뷰를 렌더링 하지 않고, 정상 흐름으로 서블릿이 리턴된다.
+- ModelandView 지정: ModelAndView에 View, Model 등의 정보를 지정해서 반환하면 뷰를 렌더링 한다. 
+- null: null을 반환하면, 다음 ExceptionResolver를 찾아서 실행한다. 만약 처리할 수 있는 ExceptionResolver가 없으면 예외 처리가 안되고, 기존에 발생한 예외를 서블릿 밖으로 던진다.
+
+#### ExceptionResolver 활용
+- 예외 상태 토드 변환
+  - 예외를 response.sendError(xxx) 호출로 변경해서 서블릿에서 상태 코드에 따른 오류를 처리하도록 위임
+  - 이후 WAS는 서블릿 오류 페이지를 찾아서 내보 호출, 예를 들어서 스프링 부트가 기본으로 설정한 /error가 호출됨
+- 뷰 템플릿 처리
+  - ModelAndView에 값을 채워서 예외에 따른 새로운 오류 화면 뷰 렌더링 해서 고객에게 제공
+- API 응답 처리
+  - response.getWriter().println("hello); 처럼 HTTP 응답 바디에 직접 데이터를 넣어주는 것도 가능하다. 여기에 JSON으로 응답하면 API 응답 처리를 할 수 있다.
+### API 예외 처리 - HandlerExceptionResolver 활용
+- 예외가 발생하면 WAS까지 예외가 던져지고, WAS에서 오류 페이지 정보를 찾아서 다시 /error를 호출하는 과정은 생각해보면 너무 복잡하다. Exception를 활용하면 예외가 발생했을 때 이런 복잡한 과정 없이 여기에서 문제를 깔끔하게 해결할 수 있다.
+
+#### 정리
+- ExceptionResolver를 사용하면 컨트롤러에서 예외가 발생해도 ExceptionResolver에서 예외를 처리해버린다. 따라서 예외가 발생해도 서블릿 컨테이너까지 예외가 전달되지 않고, 스프링 MVC에서 예외 처리는 끝이 난다. 결과적으로 WAS입장에서는 정상 처리가 된 것이다. 이렇게 예외를 이곳에서 모두 처리할 수 있다는 것이 핵심이다.
+- 서블릿 컨테이너까지 예외가 올라가면 복잡하고 지저분하게 추가 프로세스가 실행된다. 반면에 ExceptionResolver를 사용하면 예외처리가 상당히 깔끔해진다.
