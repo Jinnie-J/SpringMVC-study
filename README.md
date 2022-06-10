@@ -1192,3 +1192,36 @@ public ResponseEntity<Map<String, Object>> error(HttpServletRequest request){}
 #### 정리
 - ExceptionResolver를 사용하면 컨트롤러에서 예외가 발생해도 ExceptionResolver에서 예외를 처리해버린다. 따라서 예외가 발생해도 서블릿 컨테이너까지 예외가 전달되지 않고, 스프링 MVC에서 예외 처리는 끝이 난다. 결과적으로 WAS입장에서는 정상 처리가 된 것이다. 이렇게 예외를 이곳에서 모두 처리할 수 있다는 것이 핵심이다.
 - 서블릿 컨테이너까지 예외가 올라가면 복잡하고 지저분하게 추가 프로세스가 실행된다. 반면에 ExceptionResolver를 사용하면 예외처리가 상당히 깔끔해진다.
+
+
+### API 예외 처리 - 스프링이 제공하는 ExceptionResolver1
+- 스프링 부트가 기본으로 제공하는 ExceptionResolver는 다음과 같다.
+  - 1. ExceptionHandlerExceptionResolver
+  - 2. ResponseStatusExceptionResolver
+  - 3. DefaultHandlerExceptionResolver -> 우선 순위가 가장 낮다.
+- ExceptionHandlerExceptionResolver
+  - @ExecptionHandler을 처리한다.
+- ResponseStatusExceptionResolver
+  - HTTP상태 코드를 지정해준다. (@ResponseStatus(value = HttpStatus.NOT_FOUND))
+- DefaultHandlerExceptionResolver
+  - 스프링 내부 기본 예외를 처리한다.
+
+#### ResponseStatusExceptionResolver
+- 예외에 따라서 Http 상태코드를 지정해주는 역할을 한다.
+- 다음 두 가지 경우를 처리한다.
+  - @ResponseStatus가 달려있는 예외
+  - ResponseStatusException 예외
+  
+- @ResponseStatus 에노테이션을 적용하면 HTTP 상태 코드를 변경해준다.
+  - BadRequestException 예외가 컨트롤러 밖으로 넘어가면 ResponseStatusExceptionResolver 예외가 해당 애노테이션을 확인해서 오류 코드를 HttpStatus.BAD_REQUEST(400)으로 변경하고, 메시지도 담는다.
+  
+#### ResponseStatusException
+- @ResponseStatus는 개발자가 직접 변경할 수 없는 예외에는 적용할 수 없다. (애노테이션을 직접 넣어야 하는데, 내가 코드를 수정할 수 없는 라이브러리의 예외 코드 같은 곳에는 적용할 수 없다.)
+- 추가로 애노테이션을 사용하기 때문에 조건에 따라 동적으로 변경하는 것도 어렵다. 이때는 ResponseStatusException 예외를 사용하면 된다.
+
+
+### API 예외 처리 - 스프링이 제공하는 ExceptionResolver2
+- DefaultHandlerExceptionResolver는 스프링 내부에서 발생하는 스프링 예외를 해결한다.
+- 대표적으로 파라미터 바인딩 시점에 타입이 맞지 않으면 내부에서 TypeMismatchException이 발생하는데, 이 경우 예외가 발생했기 때문에 그냥 두면 서블릿 컨테이너까지 오류가 올라가고, 결과적으로 500 오류가 발생한다. 그런데 파라미터 바인딩은 대부분 클라이언트가 HTTP 요청 정보를 잘못 호출해서 발생하는 문제이다. HTTP에서는 이런 경우 HTTP 상태 코드 400을 사용하도록 되어 있다.
+- DefaultHandlerExceptionResolver는 이것을 500 오류가 아닌 HTTP 상태 코드 400 오류로 변경한다.
+
