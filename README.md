@@ -1225,3 +1225,41 @@ public ResponseEntity<Map<String, Object>> error(HttpServletRequest request){}
 - 대표적으로 파라미터 바인딩 시점에 타입이 맞지 않으면 내부에서 TypeMismatchException이 발생하는데, 이 경우 예외가 발생했기 때문에 그냥 두면 서블릿 컨테이너까지 오류가 올라가고, 결과적으로 500 오류가 발생한다. 그런데 파라미터 바인딩은 대부분 클라이언트가 HTTP 요청 정보를 잘못 호출해서 발생하는 문제이다. HTTP에서는 이런 경우 HTTP 상태 코드 400을 사용하도록 되어 있다.
 - DefaultHandlerExceptionResolver는 이것을 500 오류가 아닌 HTTP 상태 코드 400 오류로 변경한다.
 
+### API 예외 처리 - @ExceptionHandler
+#### HTML 화면 오류 vs API 오류
+- 웹 브라우저에 HTML 화면을 제공할 때는 오류가 발생하면 BasicErrorController를 사용하는게 편하다. 이때는 단순히 5xx, 4xx 관련된 오류 화면을 보여주면 된다. BasicErrorController는 이런 메커니즘을 모두 구현해두었다.
+- 그런데 API는 각 시스템 마다 응답의 모양도 다르고, 스펙도 모두 다르다. 예외 상황에 단순히 오류 화면을 보여주는 것이 아니라, 예외에 따라서 각각 다른 데이터를 출력해야 할 수도 있다. 그리고 같은 예외라고 해도 어떤 컨트롤러에서 발생했는가에 따라서 다른 예외 응답을 내려주어야 할 수 있다. 한마디로 매우 세밀한 제어가 필요하다.
+
+#### API 예외처리의 어려운 점
+- HandlerExceptionResolver를 떠올려 보면 ModelAndView를 반환해야 했다. 이것은 API 응답에는 필요하지 않다.
+- API 응답을 위해서 HttpServletResponse에 직접 응답 데이터를 넣어주었다. 이것은 매우 불편하다. 스프링 컨트롤러에 비유하면 마치 과거 서블릿을 사용하던 시절로 돌아간 것 같다.
+- 특정 컨트롤러에서만 발생하는 예외를 별도로 처리하기 어렵다. 예를 들어서 회원을 처리하는 컨트롤러에서 발생하는 RuntimeException 예외와 상품을 관리하는 컨트롤러에서 발생하는 동일한 RuntimeException 예외를 서로 다른 방식으로 처리하고 싶다면 어떻게 해야할까?
+
+#### @ExceptionHandler
+- 스프링은 API 예외 처리 문제를 해결하기 위해 @ExceptionHandler라는 애노테이션을 사용하는 매우 편리한 예외 처리 기능을 제공하는데, 이것이 ExceptionHandlerExceptionResolver 이다.
+스프링은 ExceptionHandlerExceptionResolver를 기본으로 제공하고, 기본으로 제공하는 ExceptionResolver중에 우선순위도 가장 높다. 실무에서 API 예외 처리는 대부분 이 기능을 사용한다.
+  
+#### @ExceptionHandler 예외 처리 방법
+- @ExceptionHandler 애노테이션을 선언하고, 해당 컨트롤러에서 처리하고 싶은 예외를 지정해주면 된다. 해당 컨트롤러에서 예외가 발생하면 이 메서드가 호출된다. 참고로 지정한 예외 또는 그 예외의 자식 클래스는 모두 잡을 수 있다.
+
+#### 우선순위
+- 스프링의 우선순위는 항상 자세한 것이 우세권을 가진다.
+```java
+@ExceptionHandler({AException.class, BException.class})
+public String ex(Exception e){
+    log.info("exception e", e);
+        }
+```  
+- @ExceptionHandler에 지정한 부모 클래스는 자식 클래스까지 처리할 수 있다. 따라서 자식예외가 발생하면 부모예외처리(), 자식예외처리() 둘다 호출 대상이 된다. 그런데 둘 중 더 자세한것이 우세권을 가지므로 자식예외처리()가 호출된다. 물론 부모예외가 호출되면 부모예외처리()만 호출 대상이 되므로 부모예외처리()가 호출된다.
+
+
+#### 파라미터 응답
+- @ExceptionHandler에는 마치 스프링의 컨트롤러의 파라미터 응답처럼 다양한 파라미터와 응답을 지정할 수 있다.
+
+#### 실행 흐름
+- 컨트롤러를 호출한 결과 IllegalArgumentException 예외가 컨트롤러 밖으로 던져진다.
+- 예외가 발생했으므로 ExceptionResolver가 작동한다. 가장 우선순위가 높은 ExceptionHandlerExceptionResolver가 실행된다.
+- ExceptionHandlerExceptionResolver는 해당 컨트롤러에 IllegalArgumentException을 처리할 수 있는 @ExceptionHandler가 있는지 확인한다.
+- IllegalExHandler()를 실행한다. @RestController 이므로 IllegalExHandler()에도 @ResponseBody가 적용된다. 따라서 HTTP 컨버터가 사용되고, 응답이 JSON으로 반환된다.
+- @ResponseStatus(HttpStatus.BAD_REQUEST)를 지정했으므로 HTTP 상태코드 400으로 응답한다.
+
